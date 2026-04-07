@@ -1,0 +1,36 @@
+[
+  {
+    "modelo": "gpt-4o-mini",
+    "resultados": {
+      "simples": {
+        "aciertos": 5,
+        "total": 5,
+        "errores": 0,
+        "precision": 100.0
+      },
+      "complejas": {
+        "aciertos": 5,
+        "total": 5,
+        "errores": 0,
+        "precision": 100.0
+      }
+    }
+  },
+  {
+    "modelo": "gpt-4o-mini",
+    "resultados": {
+      "simples": {
+        "aciertos": 5,
+        "total": 5,
+        "errores": 0,
+        "precision": 100.0
+      },
+      "complejas": {
+        "aciertos": 5,
+        "total": 5,
+        "errores": 0,
+        "precision": 100.0
+      }
+    }
+  }
+]

@@ -1,19 +1,23 @@
 """
-CLI simple para interactuar con el agente SQL.
-Paso 1: python ui.py
-Paso 2: python ui.py --v2
+CLI y Streamlit para el agente SQL.
+  python ui.py         -> Paso 1
+  python ui.py --v2    -> Paso 2
+  python ui.py --v3    -> Paso 3
+  python ui.py --v4    -> Paso 4
+  streamlit run ui.py  -> Paso 5 (Streamlit)
 """
 
 import sys
-from agents import crear_agente, crear_agente_v2, preguntar
 from langgraph.types import Command
 
 
+# ========== CLI ==========
+
 def cli_paso1():
-    """CLI sin memoria ni human-in-the-loop."""
+    from agents import crear_agente, preguntar
+
     print("=== Agente Text2SQL - Paso 1 ===")
     print("Escribe 'salir' para terminar\n")
-
     agente = crear_agente()
 
     while True:
@@ -22,20 +26,49 @@ def cli_paso1():
             continue
         if pregunta.lower() in ("salir", "exit"):
             break
-
         try:
-            respuesta = preguntar(agente, pregunta)
-            print(f"\n{respuesta}\n")
+            print(f"\n{preguntar(agente, pregunta)}\n")
         except Exception as e:
             print(f"\nError: {e}\n")
 
 
-def cli_paso2():
-    """CLI con memoria y human-in-the-loop."""
-    print("=== Agente Text2SQL - Paso 2 ===")
-    print("(Con memoria y human-in-the-loop)")
-    print("Escribe 'salir' para terminar\n")
+def _loop_hitl(agente, config, solo_riesgo=False):
+    from agents import es_herramienta_segura
 
+    while True:
+        estado = agente.get_state(config)
+
+        if not estado.next:
+            print(f"\n{estado.values['messages'][-1].content}\n")
+            return
+
+        ultimo = estado.values["messages"][-1]
+
+        if solo_riesgo and es_herramienta_segura(ultimo.tool_calls):
+            agente.invoke(Command(resume=True), config=config)
+            continue
+
+        for tc in ultimo.tool_calls:
+            print(f"\n  Herramienta: {tc['name']}")
+            print(f"  Argumentos: {tc['args']}")
+
+        etiqueta = "Operacion de riesgo. Aprobar?" if solo_riesgo else "Aprobar?"
+        decision = input(f"\n  {etiqueta} (s/n)> ").strip().lower()
+
+        if decision in ("s", "si", "y", "yes"):
+            agente.invoke(Command(resume=True), config=config)
+        else:
+            agente.invoke(
+                Command(resume=[{"role": "user", "content": "Operacion rechazada por el usuario."}]),
+                config=config,
+            )
+
+
+def cli_paso2():
+    from agents import crear_agente_v2
+
+    print("=== Agente Text2SQL - Paso 2 ===")
+    print("Escribe 'salir' para terminar\n")
     agente = crear_agente_v2()
     config = {"configurable": {"thread_id": "1"}}
 
@@ -45,45 +78,175 @@ def cli_paso2():
             continue
         if pregunta.lower() in ("salir", "exit"):
             break
-
         try:
-            # Enviar pregunta al agente
-            resultado = agente.invoke(
-                {"messages": [{"role": "user", "content": pregunta}]},
-                config=config,
-            )
-
-            # Bucle de human-in-the-loop
-            while True:
-                estado = agente.get_state(config)
-
-                # Si no hay interrupciones pendientes, mostrar respuesta
-                if not estado.next:
-                    ultimo_msg = estado.values["messages"][-1]
-                    print(f"\n{ultimo_msg.content}\n")
-                    break
-
-                # Hay una herramienta pendiente: mostrar y pedir confirmacion
-                ultimo_msg = estado.values["messages"][-1]
-                for tool_call in ultimo_msg.tool_calls:
-                    print(f"\n  Herramienta: {tool_call['name']}")
-                    print(f"  Argumentos: {tool_call['args']}")
-
-                decision = input("\n  Aprobar? (s/n)> ").strip().lower()
-
-                if decision in ("s", "si", "y", "yes"):
-                    # Continuar ejecucion
-                    resultado = agente.invoke(Command(resume="approve"), config=config)
-                else:
-                    # Cancelar la herramienta
-                    resultado = agente.invoke(Command(resume="reject"), config=config)
-
+            agente.invoke({"messages": [{"role": "user", "content": pregunta}]}, config=config)
+            _loop_hitl(agente, config, solo_riesgo=False)
         except Exception as e:
             print(f"\nError: {e}\n")
 
 
-if __name__ == "__main__":
+def cli_paso3():
+    from agents import crear_agente_v3
+
+    print("=== Agente Text2SQL - Paso 3 ===")
+    print("Escribe 'salir' para terminar\n")
+    agente = crear_agente_v3()
+    config = {"configurable": {"thread_id": "1"}}
+
+    while True:
+        pregunta = input("Pregunta> ").strip()
+        if not pregunta:
+            continue
+        if pregunta.lower() in ("salir", "exit"):
+            break
+        try:
+            agente.invoke({"messages": [{"role": "user", "content": pregunta}]}, config=config)
+            _loop_hitl(agente, config, solo_riesgo=True)
+        except Exception as e:
+            print(f"\nError: {e}\n")
+
+
+def cli_paso4():
+    from agents import crear_agente_v4, resumir_mensajes
+
+    print("=== Agente Text2SQL - Paso 4 ===")
+    print("Escribe 'salir' para terminar\n")
+    agente, llm, max_msgs = crear_agente_v4()
+    config = {"configurable": {"thread_id": "1"}}
+
+    while True:
+        pregunta = input("Pregunta> ").strip()
+        if not pregunta:
+            continue
+        if pregunta.lower() in ("salir", "exit"):
+            break
+        try:
+            estado = agente.get_state(config)
+            if estado.values and "messages" in estado.values:
+                update = resumir_mensajes(llm, estado.values["messages"], max_msgs)
+                if update:
+                    agente.update_state(config, {"messages": update})
+                    print("  (memoria resumida)")
+
+            agente.invoke({"messages": [{"role": "user", "content": pregunta}]}, config=config)
+            _loop_hitl(agente, config, solo_riesgo=True)
+        except Exception as e:
+            print(f"\nError: {e}\n")
+
+
+# ========== Paso 5: Streamlit ==========
+
+def streamlit_app():
+    import streamlit as st
+    from agents import crear_agente_v4, es_herramienta_segura, resumir_mensajes
+
+    st.title("Agente Text2SQL")
+
+    if "agente" not in st.session_state:
+        agente, llm, max_msgs = crear_agente_v4()
+        st.session_state.agente = agente
+        st.session_state.llm = llm
+        st.session_state.max_msgs = max_msgs
+        st.session_state.config = {"configurable": {"thread_id": "1"}}
+        st.session_state.historial = []
+        st.session_state.pendiente = False
+
+    agente = st.session_state.agente
+    config = st.session_state.config
+
+    # Mostrar historial
+    for msg in st.session_state.historial:
+        with st.chat_message(msg["role"]):
+            st.write(msg["content"])
+
+    # Aprobacion pendiente
+    if st.session_state.pendiente:
+        estado = agente.get_state(config)
+        ultimo = estado.values["messages"][-1]
+        st.warning("Operacion de riesgo pendiente:")
+        for tc in ultimo.tool_calls:
+            st.code(f"{tc['name']}: {tc['args']}")
+
+        col1, col2 = st.columns(2)
+        if col1.button("Aprobar"):
+            agente.invoke(Command(resume=True), config=config)
+            st.session_state.pendiente = False
+            _streamlit_procesar(agente, config)
+            st.rerun()
+        if col2.button("Rechazar"):
+            agente.invoke(
+                Command(resume=[{"role": "user", "content": "Operacion rechazada."}]),
+                config=config,
+            )
+            st.session_state.pendiente = False
+            estado = agente.get_state(config)
+            if not estado.next:
+                resp = estado.values["messages"][-1].content
+                st.session_state.historial.append({"role": "assistant", "content": resp})
+            st.rerun()
+        return
+
+    # Input del usuario
+    pregunta = st.chat_input("Escribe tu pregunta SQL...")
+    if pregunta:
+        st.session_state.historial.append({"role": "user", "content": pregunta})
+
+        # Resumir si hay muchos mensajes
+        estado = agente.get_state(config)
+        if estado.values and "messages" in estado.values:
+            update = resumir_mensajes(
+                st.session_state.llm, estado.values["messages"], st.session_state.max_msgs
+            )
+            if update:
+                agente.update_state(config, {"messages": update})
+
+        with st.spinner("Pensando..."):
+            agente.invoke(
+                {"messages": [{"role": "user", "content": pregunta}]},
+                config=config,
+            )
+            _streamlit_procesar(agente, config)
+
+        # Forzar rerun para mostrar la respuesta
+        st.rerun()
+
+
+def _streamlit_procesar(agente, config):
+    import streamlit as st
+    from agents import es_herramienta_segura
+
+    while True:
+        estado = agente.get_state(config)
+        if not estado.next:
+            resp = estado.values["messages"][-1].content
+            st.session_state.historial.append({"role": "assistant", "content": resp})
+            return
+
+        ultimo = estado.values["messages"][-1]
+        if es_herramienta_segura(ultimo.tool_calls):
+            agente.invoke(Command(resume=True), config=config)
+        else:
+            st.session_state.pendiente = True
+            return
+
+
+# ========== Punto de entrada ==========
+
+_in_streamlit = False
+try:
+    import streamlit as st
+    _in_streamlit = st.runtime.exists()
+except (ImportError, AttributeError):
+    pass
+
+if _in_streamlit:
+    streamlit_app()
+elif __name__ == "__main__":
     if "--v2" in sys.argv:
         cli_paso2()
+    elif "--v3" in sys.argv:
+        cli_paso3()
+    elif "--v4" in sys.argv:
+        cli_paso4()
     else:
         cli_paso1()
