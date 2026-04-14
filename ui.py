@@ -1,11 +1,3 @@
-"""
-CLI y Streamlit para el agente SQL.
-  python ui.py         -> Paso 1
-  python ui.py --v2    -> Paso 2
-  python ui.py --v3    -> Paso 3
-  python ui.py --v4    -> Paso 4
-  streamlit run ui.py  -> Paso 5 (Streamlit)
-"""
 
 import sys
 from langgraph.types import Command
@@ -16,7 +8,7 @@ from langgraph.types import Command
 def cli_paso1():
     from agents import crear_agente, preguntar
 
-    print("=== Agente Text2SQL - Paso 1 ===")
+    print("=== Agente Text2SQL ===")
     print("Escribe 'salir' para terminar\n")
     agente = crear_agente()
 
@@ -67,7 +59,7 @@ def _loop_hitl(agente, config, solo_riesgo=False):
 def cli_paso2():
     from agents import crear_agente_v2
 
-    print("=== Agente Text2SQL - Paso 2 ===")
+    print("=== Agente Text2SQL ===")
     print("Escribe 'salir' para terminar\n")
     agente = crear_agente_v2()
     config = {"configurable": {"thread_id": "1"}}
@@ -88,7 +80,7 @@ def cli_paso2():
 def cli_paso3():
     from agents import crear_agente_v3
 
-    print("=== Agente Text2SQL - Paso 3 ===")
+    print("=== Agente Text2SQL ===")
     print("Escribe 'salir' para terminar\n")
     agente = crear_agente_v3()
     config = {"configurable": {"thread_id": "1"}}
@@ -109,7 +101,7 @@ def cli_paso3():
 def cli_paso4():
     from agents import crear_agente_v4, resumir_mensajes
 
-    print("=== Agente Text2SQL - Paso 4 ===")
+    print("=== Agente Text2SQL ===")
     print("Escribe 'salir' para terminar\n")
     agente, llm, max_msgs = crear_agente_v4()
     config = {"configurable": {"thread_id": "1"}}

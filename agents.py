@@ -1,6 +1,4 @@
-"""
-Agente SQL - Pasos 1 a 4.
-"""
+
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -35,9 +33,7 @@ HERRAMIENTAS:
   Estas requieren aprobacion humana."""
 
 
-# --- Paso 1 ---
 def crear_agente(modelo="gpt-4o-mini"):
-    """Agente simple sin memoria ni human-in-the-loop."""
     llm = ChatOpenAI(model=modelo)
     toolkit = SQLDatabaseToolkit(db=db, llm=llm)
     agente = create_react_agent(
@@ -48,9 +44,8 @@ def crear_agente(modelo="gpt-4o-mini"):
     return agente
 
 
-# --- Paso 2 ---
+
 def crear_agente_v2(modelo="gpt-4o-mini"):
-    """Agente con memoria y human-in-the-loop en todas las herramientas."""
     llm = ChatOpenAI(model=modelo)
     toolkit = SQLDatabaseToolkit(db=db, llm=llm)
     memoria = InMemorySaver()
@@ -66,12 +61,10 @@ def crear_agente_v2(modelo="gpt-4o-mini"):
 
 # --- Paso 3 ---
 def crear_agente_v3(modelo="gpt-4o-mini"):
-    """Human-in-the-loop solo para operaciones de riesgo."""
     llm = ChatOpenAI(model=modelo)
     toolkit = SQLDatabaseToolkit(db=db, llm=llm)
     tools = toolkit.get_tools()
 
-    # Herramienta segura clonada para SELECT
     safe_sql_tool = QuerySQLDataBaseTool(
         db=db,
         name="safe_sql_query",
@@ -82,7 +75,7 @@ def crear_agente_v3(modelo="gpt-4o-mini"):
         ),
     )
 
-    # Mantener todas las herramientas excepto sql_db_query, anadir safe + sql_db_query
+
     sql_db_query_tool = next(t for t in tools if t.name == "sql_db_query")
     tools_v3 = [t for t in tools if t.name != "sql_db_query"] + [safe_sql_tool, sql_db_query_tool]
 
@@ -97,9 +90,7 @@ def crear_agente_v3(modelo="gpt-4o-mini"):
     return agente
 
 
-# --- Paso 4 ---
 def crear_agente_v4(modelo="gpt-4o-mini", max_mensajes=20):
-    """Como v3 pero con gestion de memoria (resumen)."""
     llm = ChatOpenAI(model=modelo)
     toolkit = SQLDatabaseToolkit(db=db, llm=llm)
     tools = toolkit.get_tools()
@@ -128,20 +119,18 @@ def crear_agente_v4(modelo="gpt-4o-mini", max_mensajes=20):
     return agente, llm, max_mensajes
 
 
-# --- Utilidades ---
 HERRAMIENTAS_SEGURAS = {"safe_sql_query", "sql_db_list_tables", "sql_db_schema", "sql_db_query_checker"}
 
 
 def es_herramienta_segura(tool_calls):
-    """True si todas las herramientas pendientes son seguras."""
+
     return all(tc["name"] in HERRAMIENTAS_SEGURAS for tc in tool_calls)
 
 
 def resumir_mensajes(llm, mensajes, max_mensajes=20):
-    """Resumir mensajes antiguos si superan el limite.
-    Usa RemoveMessage para borrar los viejos y anade un SystemMessage con el resumen."""
+
     if len(mensajes) <= max_mensajes:
-        return None  # No hace falta resumir
+        return None
 
     a_resumir = mensajes[:-6]
     recientes = mensajes[-6:]
@@ -156,13 +145,12 @@ def resumir_mensajes(llm, mensajes, max_mensajes=20):
         HumanMessage(content=f"Resume brevemente esta conversacion:\n{texto}")
     ]).content
 
-    # Borrar mensajes viejos + anadir resumen
+
     borrar = [RemoveMessage(id=m.id) for m in a_resumir if hasattr(m, "id")]
     nuevo = SystemMessage(content=f"Resumen de la conversacion anterior: {resumen}")
     return borrar + [nuevo] + recientes
 
 
 def preguntar(agente, pregunta):
-    """Envia una pregunta al agente y devuelve la respuesta (Paso 1, sin memoria)."""
     resultado = agente.invoke({"messages": [{"role": "user", "content": pregunta}]})
     return resultado["messages"][-1].content

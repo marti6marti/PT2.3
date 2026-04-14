@@ -1,7 +1,4 @@
-"""
-Evaluaciones del agente SQL - Paso 1.
-Dataset de 10 pares (pregunta, respuesta esperada).
-"""
+
 
 import json
 import time
