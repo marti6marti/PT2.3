@@ -3,7 +3,6 @@ import sys
 from langgraph.types import Command
 
 
-# ========== CLI ==========
 
 def cli_paso1():
     from agents import crear_agente, preguntar
@@ -126,7 +125,7 @@ def cli_paso4():
             print(f"\nError: {e}\n")
 
 
-# ========== Paso 5: Streamlit ==========
+
 
 def streamlit_app():
     import streamlit as st
@@ -146,12 +145,12 @@ def streamlit_app():
     agente = st.session_state.agente
     config = st.session_state.config
 
-    # Mostrar historial
+
     for msg in st.session_state.historial:
         with st.chat_message(msg["role"]):
             st.write(msg["content"])
 
-    # Aprobacion pendiente
+
     if st.session_state.pendiente:
         estado = agente.get_state(config)
         ultimo = estado.values["messages"][-1]
@@ -178,7 +177,7 @@ def streamlit_app():
             st.rerun()
         return
 
-    # Input del usuario
+
     pregunta = st.chat_input("Escribe tu pregunta SQL...")
     if pregunta:
         st.session_state.historial.append({"role": "user", "content": pregunta})
@@ -199,7 +198,7 @@ def streamlit_app():
             )
             _streamlit_procesar(agente, config)
 
-        # Forzar rerun para mostrar la respuesta
+
         st.rerun()
 
 
@@ -222,7 +221,6 @@ def _streamlit_procesar(agente, config):
             return
 
 
-# ========== Punto de entrada ==========
 
 _in_streamlit = False
 try:
